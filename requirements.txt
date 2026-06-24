@@ -1,0 +1,10 @@
+aiogram==3.26.0
+aiosqlite==0.22.1
+APScheduler==3.11.2
+greenlet==3.3.2
+loguru==0.7.3
+openpyxl==3.1.5
+python-dotenv==1.2.2
+SQLAlchemy==2.0.48
+tzdata==2025.3
+tzlocal==5.3.1
