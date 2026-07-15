@@ -62,14 +62,55 @@ def _column_names(model: type[DeclarativeBase]) -> list[str]:
     return [c.key for c in model.__table__.columns]
 
 
+_SETTINGS_LEADING_COLUMNS = (
+    "bot_id",
+    "bot_username",
+    "bot_display_name",
+    "source_bot_id",
+    "owner_tg_id",
+    "partner_username",
+)
+
+
+def _export_columns(sheet_key: str, model: type[DeclarativeBase]) -> list[str]:
+    default = _column_names(model)
+    if sheet_key == "partner_bot_settings":
+        placed = set(_SETTINGS_LEADING_COLUMNS)
+        rest = [c for c in default if c not in placed]
+        return list(_SETTINGS_LEADING_COLUMNS) + rest
+
+    if "bot_id" in default and "source_bot_id" not in default:
+        cols = list(default)
+        cols.insert(cols.index("bot_id") + 1, "source_bot_id")
+        return cols
+
+    return default
+
+
+def _source_bot_map(settings_rows: list[Any]) -> dict[int, Any]:
+    return {row.bot_id: row.source_bot_id for row in settings_rows}
+
+
+def _cell_value(row: Any, column: str, source_bot_by_bot_id: dict[int, Any]) -> Any:
+    if column == "source_bot_id" and not hasattr(row, "source_bot_id"):
+        bot_id = getattr(row, "bot_id", None)
+        if bot_id is None:
+            return None
+        return source_bot_by_bot_id.get(bot_id)
+    return getattr(row, column, None)
+
+
 def _write_sheet(
     wb: openpyxl.Workbook,
     sheet_title: str,
     rows: Iterable[Any],
     model: type[DeclarativeBase],
+    *,
+    source_bot_by_bot_id: dict[int, Any] | None = None,
 ) -> Worksheet:
     ws = wb.create_sheet(title=sheet_title)
-    columns = _column_names(model)
+    columns = _export_columns(sheet_title, model)
+    source_map = source_bot_by_bot_id or {}
 
     for col_num, title in enumerate(columns, 1):
         cell = ws.cell(row=1, column=col_num, value=title)
@@ -77,7 +118,7 @@ def _write_sheet(
         cell.border = _THIN_BORDER
 
     for row_num, row in enumerate(rows, 2):
-        row_data = [_excel_scalar(getattr(row, name)) for name in columns]
+        row_data = [_excel_scalar(_cell_value(row, name, source_map)) for name in columns]
         for col_num, value in enumerate(row_data, 1):
             cell = ws.cell(row=row_num, column=col_num, value=value)
             cell.border = _THIN_BORDER
@@ -99,8 +140,16 @@ def _build_export_workbook(snapshot: dict[str, list[Any]]) -> str:
     if "Sheet" in wb.sheetnames:
         wb.remove(wb["Sheet"])
 
+    source_bot_by_bot_id = _source_bot_map(snapshot["partner_bot_settings"])
+
     for sheet_key, model in _EXPORT_SHEETS:
-        _write_sheet(wb, sheet_key, snapshot[sheet_key], model)
+        _write_sheet(
+            wb,
+            sheet_key,
+            snapshot[sheet_key],
+            model,
+            source_bot_by_bot_id=source_bot_by_bot_id,
+        )
 
     fd, path = tempfile.mkstemp(suffix=".xlsx")
     os.close(fd)
