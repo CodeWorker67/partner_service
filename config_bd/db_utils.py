@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select
 
@@ -34,3 +34,12 @@ class DbReader:
             "payments_cryptobot": payments_cryptobot_list,
             "online": online_list,
         }
+
+    async def list_bot_settings(self) -> List[PartnerBotSettings]:
+        async with AsyncSessionLocal() as session:
+            stmt = select(PartnerBotSettings).order_by(PartnerBotSettings.bot_id.asc())
+            return list((await session.execute(stmt)).scalars().all())
+
+    async def get_bot_settings(self, bot_id: int) -> Optional[PartnerBotSettings]:
+        async with AsyncSessionLocal() as session:
+            return await session.get(PartnerBotSettings, bot_id)

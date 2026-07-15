@@ -112,13 +112,69 @@ def _count_confirmed(rows: list[Any], status_field: str = "status", ok_values: t
     return sum(1 for r in rows if getattr(r, status_field, None) in ok_values)
 
 
+def _at(username: str | None) -> str:
+    if not username:
+        return "—"
+    u = username.lstrip("@")
+    return f"@{u}" if u else "—"
+
+
+def _format_bot_card(row: PartnerBotSettings) -> str:
+    balance = row.partner_balance or 0
+    own = row.balance_own_bot or 0
+    child = row.balance_child_bots or 0
+    paid = row.partner_pay or 0
+    source = row.source_bot_id if row.source_bot_id is not None else "—"
+    name = row.bot_display_name or "—"
+    return (
+        f"<b>#{row.bot_id}</b> {_at(row.bot_username)} · {name}\n"
+        f"├ партнёр: {_at(row.partner_username)} (<code>{row.owner_tg_id}</code>)\n"
+        f"├ source_bot_id: <code>{source}</code>\n"
+        f"└ баланс: {balance} (own {own} / child {child}), выплачено {paid}"
+    )
+
+
+def _chunk_html(parts: list[str], *, limit: int = 3500) -> list[str]:
+    chunks: list[str] = []
+    buf = ""
+    for part in parts:
+        add = part if not buf else f"\n\n{part}"
+        if buf and len(buf) + len(add) > limit:
+            chunks.append(buf)
+            buf = part
+        else:
+            buf = buf + add if buf else part
+    if buf:
+        chunks.append(buf)
+    return chunks
+
+
 @router.message(Command(commands=["start"]))
 async def cmd_start(message: Message) -> None:
     await message.answer(
         "🤖 Partner Service Bot\n\n"
         "Доступные команды:\n"
+        "/bots — список партнёрских ботов (identity + балансы)\n"
         "/export — экспорт всех таблиц БД в Excel (только админы)"
     )
+
+
+@router.message(Command(commands=["bots"]))
+async def cmd_bots(message: Message) -> None:
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("❌ Эта команда доступна только администраторам.")
+        return
+
+    rows = await sql.list_bot_settings()
+    if not rows:
+        await message.answer("В partner_bot_settings пока нет записей.")
+        return
+
+    header = f"⚙️ Партнёрские боты: <b>{len(rows)}</b>"
+    chunks = _chunk_html([header] + [_format_bot_card(r) for r in rows])
+
+    for chunk in chunks:
+        await message.answer(chunk, parse_mode="HTML")
 
 
 @router.message(Command(commands=["export"]))

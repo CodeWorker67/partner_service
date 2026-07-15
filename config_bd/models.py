@@ -49,6 +49,10 @@ class PartnerBotSettings(Base):
     trial_days = Column(Integer, default=3)
     prices_json = Column(String(4096), nullable=True)
     partner_since = Column(DateTime, default=datetime.now)
+    partner_username = Column(String(255), nullable=True)
+    bot_username = Column(String(255), nullable=True)
+    bot_display_name = Column(String(255), nullable=True)
+    source_bot_id = Column(BigInteger, nullable=True)
 
 
 class Users(Base):
