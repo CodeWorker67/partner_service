@@ -7,15 +7,19 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from bot import bot
 from config import DATABASE_PATH, TG_TOKEN
 from config_bd.models import engine
-from handlers import handlers_export
+from handlers import handlers_admin, handlers_export
 from logging_config import logger
+from services.panel import close_all_panels
 from sheduler.backup_db import send_db_backup_cron
 
 
 async def set_commands() -> None:
     commands = [
         BotCommand(command="start", description="Запустить бота"),
+        BotCommand(command="info", description="Справка по командам (админы)"),
         BotCommand(command="export", description="Экспорт БД в Excel (админы)"),
+        BotCommand(command="pay", description="Подписки и платежи (админы)"),
+        BotCommand(command="find", description="Поиск пользователя (админы)"),
     ]
     await bot.set_my_commands(commands)
 
@@ -28,6 +32,7 @@ async def main() -> None:
         logger.warning("Файл БД пока отсутствует: %s", DATABASE_PATH)
 
     dp = Dispatcher()
+    dp.include_router(handlers_admin.router)
     dp.include_router(handlers_export.router)
 
     scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
@@ -52,6 +57,7 @@ async def main() -> None:
         logger.error("Polling was cancelled. Cleaning up...")
     finally:
         await bot.session.close()
+        await close_all_panels()
         await engine.dispose()
         logger.info("Bot session closed, DB pool disposed.")
 

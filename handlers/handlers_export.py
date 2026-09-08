@@ -204,7 +204,8 @@ async def cmd_start(message: Message) -> None:
         "🤖 Partner Service Bot\n\n"
         "Доступные команды:\n"
         "/bots — список партнёрских ботов (identity + балансы)\n"
-        "/export — экспорт всех таблиц БД в Excel (только админы)"
+        "/export — экспорт всех таблиц БД в Excel (только админы)\n"
+        "/info — полная справка по командам (только админы)"
     )
 
 

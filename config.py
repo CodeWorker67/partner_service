@@ -14,3 +14,4 @@ _cid = os.environ.get("CHECKER_ID")
 CHECKER_ID: int | None = int(_cid) if _cid else None
 
 DATABASE_PATH: Path = Path(os.environ.get("DATABASE_PATH", "/root/database/partner.db"))
+BOTS_ROOT: Path = Path(os.environ.get("BOTS_ROOT", "/root"))
