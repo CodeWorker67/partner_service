@@ -396,13 +396,25 @@ async def _format_find_block(user: Users, bot_settings) -> str:
     return "\n".join(lines)
 
 
+def _format_find_user_header(profile: dict) -> str:
+    full_name = (profile.get("full_name") or "").strip()
+    username = (profile.get("username") or "").strip().lstrip("@")
+    if full_name and username:
+        return f"{full_name} (@{username})"
+    if full_name:
+        return full_name
+    if username:
+        return f"@{username}"
+    return ""
+
+
 async def _build_find_message(tg_id: int, *, notice: str = "") -> tuple[str, Optional[InlineKeyboardMarkup]]:
     users = await sql.list_users_by_tg_id(tg_id)
     if not users:
         return f"❌ Пользователь {tg_id} не найден.", None
 
     profile = parse_user_profile(users[0].field_str_2)
-    name = profile.get("full_name") or profile.get("username") or ""
+    name = _format_find_user_header(profile)
 
     blocks: List[str] = [f"👤 {tg_id}"]
     if name:
