@@ -23,6 +23,22 @@ def bot_env_path(bot_id: int) -> Path:
     return BOTS_ROOT / str(bot_id) / ".env"
 
 
+def is_bot_deployed(bot_id: int) -> bool:
+    """Бот развёрнут: есть /root/{bot_id}/.env с TG_TOKEN."""
+    path = bot_env_path(bot_id)
+    if not path.is_file():
+        return False
+    raw = dotenv_values(path)
+    return bool((raw.get("TG_TOKEN") or "").strip())
+
+
+def is_active_bot_settings(row) -> bool:
+    """Активный бот: задан @username в БД или есть развёрнутый .env."""
+    if (row.bot_username or "").strip():
+        return True
+    return is_bot_deployed(row.bot_id)
+
+
 def load_bot_env(bot_id: int) -> Optional[BotEnv]:
     path = bot_env_path(bot_id)
     if not path.is_file():

@@ -203,7 +203,7 @@ async def cmd_start(message: Message) -> None:
     await message.answer(
         "🤖 Partner Service Bot\n\n"
         "Доступные команды:\n"
-        "/bots — список партнёрских ботов (identity + балансы)\n"
+        "/bots — список активных партнёрских ботов (identity + балансы)\n"
         "/export — экспорт всех таблиц БД в Excel (только админы)\n"
         "/info — полная справка по командам (только админы)"
     )
@@ -215,12 +215,12 @@ async def cmd_bots(message: Message) -> None:
         await message.answer("❌ Эта команда доступна только администраторам.")
         return
 
-    rows = await sql.list_bot_settings()
+    rows = await sql.list_active_bot_settings()
     if not rows:
-        await message.answer("В partner_bot_settings пока нет записей.")
+        await message.answer("Активных партнёрских ботов не найдено.")
         return
 
-    header = f"⚙️ Партнёрские боты: <b>{len(rows)}</b>"
+    header = f"⚙️ Активные партнёрские боты: <b>{len(rows)}</b>"
     chunks = _chunk_html([header] + [_format_bot_card(r) for r in rows])
 
     for chunk in chunks:

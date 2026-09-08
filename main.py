@@ -17,9 +17,6 @@ async def set_commands() -> None:
     commands = [
         BotCommand(command="start", description="Запустить бота"),
         BotCommand(command="info", description="Справка по командам (админы)"),
-        BotCommand(command="export", description="Экспорт БД в Excel (админы)"),
-        BotCommand(command="pay", description="Подписки и платежи (админы)"),
-        BotCommand(command="find", description="Поиск пользователя (админы)"),
     ]
     await bot.set_my_commands(commands)
 

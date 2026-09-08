@@ -52,6 +52,12 @@ class DbReader:
             stmt = select(PartnerBotSettings).order_by(PartnerBotSettings.bot_id.asc())
             return list((await session.execute(stmt)).scalars().all())
 
+    async def list_active_bot_settings(self) -> List[PartnerBotSettings]:
+        from services.bot_env import is_active_bot_settings
+
+        rows = await self.list_bot_settings()
+        return [row for row in rows if is_active_bot_settings(row)]
+
     async def get_bot_settings(self, bot_id: int) -> Optional[PartnerBotSettings]:
         async with AsyncSessionLocal() as session:
             return await session.get(PartnerBotSettings, bot_id)
