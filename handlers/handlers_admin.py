@@ -209,9 +209,56 @@ def _split_long_text(text: str, limit: int = 3500) -> List[str]:
         return [text]
     chunks: List[str] = []
     while text:
-        chunks.append(text[:limit])
-        text = text[limit:]
+        if len(text) <= limit:
+            chunks.append(text)
+            break
+        cut = text.rfind("\n\n", 0, limit)
+        if cut <= 0:
+            cut = text.rfind("\n", 0, limit)
+        if cut <= 0:
+            cut = limit
+        else:
+            cut += 2 if text[cut : cut + 2] == "\n\n" else 1
+        chunks.append(text[:cut].rstrip())
+        text = text[cut:].lstrip("\n")
     return chunks
+
+
+async def _send_find_message(
+    message: Message,
+    text: str,
+    keyboard: Optional[InlineKeyboardMarkup] = None,
+) -> None:
+    chunks = _split_long_text(text)
+    for i, chunk in enumerate(chunks):
+        reply_markup = keyboard if i == len(chunks) - 1 else None
+        await message.answer(chunk, parse_mode="HTML", reply_markup=reply_markup)
+
+
+async def _refresh_find_message(
+    callback: CallbackQuery,
+    text: str,
+    keyboard: Optional[InlineKeyboardMarkup] = None,
+) -> None:
+    chunks = _split_long_text(text)
+    msg = callback.message
+    if msg is None:
+        return
+    if len(chunks) == 1:
+        try:
+            await msg.edit_text(chunks[0], parse_mode="HTML", reply_markup=keyboard)
+        except Exception as e:
+            logger.warning("find callback edit_text failed: {}", e)
+            await msg.answer(chunks[0], parse_mode="HTML", reply_markup=keyboard)
+        return
+    try:
+        await msg.edit_text(chunks[0], parse_mode="HTML")
+    except Exception as e:
+        logger.warning("find callback edit_text failed: {}", e)
+        await msg.answer(chunks[0], parse_mode="HTML")
+    for chunk in chunks[1:-1]:
+        await msg.answer(chunk, parse_mode="HTML")
+    await msg.answer(chunks[-1], parse_mode="HTML", reply_markup=keyboard)
 
 
 def _parse_datetime(raw: str) -> Optional[datetime]:
@@ -568,11 +615,7 @@ async def cmd_find(message: Message):
         return
 
     text, keyboard = await _build_find_message(tg_id)
-    if keyboard is None:
-        await message.answer(text, parse_mode="HTML")
-        return
-
-    await message.answer(text, parse_mode="HTML", reply_markup=keyboard)
+    await _send_find_message(message, text, keyboard)
 
 
 @router.callback_query(F.data.startswith("find:"))
@@ -624,14 +667,7 @@ async def find_action_callback(callback: CallbackQuery):
         return
 
     text, keyboard = await _build_find_message(tg_id, notice=notice)
-    try:
-        if keyboard is None:
-            await callback.message.edit_text(text, parse_mode="HTML")
-        else:
-            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
-    except Exception as e:
-        logger.warning("find callback edit_text failed: {}", e)
-        await callback.message.answer(text, parse_mode="HTML", reply_markup=keyboard)
+    await _refresh_find_message(callback, text, keyboard)
     await callback.answer(notice)
 
 
