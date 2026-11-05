@@ -1,10 +1,11 @@
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import delete, exists, func, or_, select, update
 
 from config_bd.models import (
+    AppRefferals,
     AsyncSessionLocal,
     Gifts,
     Online,
@@ -36,6 +37,7 @@ class DbReader:
             payments_fk_sbp_list = (await session.execute(select(PaymentsFkSBP))).scalars().all()
             payments_stars_list = (await session.execute(select(PaymentsStars))).scalars().all()
             payments_cryptobot_list = (await session.execute(select(PaymentsCryptobot))).scalars().all()
+            app_refferals_list = (await session.execute(select(AppRefferals))).scalars().all()
             online_list = (await session.execute(select(Online))).scalars().all()
         return {
             "partner_bot_settings": settings_list,
@@ -44,6 +46,7 @@ class DbReader:
             "payments_fk_sbp": payments_fk_sbp_list,
             "payments_stars": payments_stars_list,
             "payments_cryptobot": payments_cryptobot_list,
+            "app_refferals": app_refferals_list,
             "online": online_list,
         }
 
@@ -330,3 +333,36 @@ class DbReader:
                 .limit(1)
             )
             return (await session.execute(stmt)).scalar_one_or_none()
+
+    @staticmethod
+    def _subscription_not_active(column, now: datetime):
+        return or_(column.is_(None), column <= now)
+
+    async def delete_old_inactive_users(self, *, days: int = 10) -> int:
+        """Удаляет users: вход > days назад, не в панели, не подключён, без подписок и платежей."""
+        cutoff = datetime.now() - timedelta(days=days)
+        now = datetime.now()
+
+        def _no_payments(model) -> exists:
+            return ~exists(
+                select(model.id).where(
+                    model.bot_id == Users.bot_id,
+                    model.user_id == Users.user_id,
+                )
+            )
+
+        async with AsyncSessionLocal() as session:
+            stmt = delete(Users).where(
+                Users.in_panel == False,
+                Users.is_connect == False,
+                Users.create_user < cutoff,
+                self._subscription_not_active(Users.subscription_end_date, now),
+                self._subscription_not_active(Users.subscription_3_end_date, now),
+                self._subscription_not_active(Users.subscription_10_end_date, now),
+                _no_payments(PaymentsFkSBP),
+                _no_payments(PaymentsStars),
+                _no_payments(PaymentsCryptobot),
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            return int(result.rowcount or 0)

@@ -15,6 +15,7 @@ from sqlalchemy.orm import DeclarativeBase
 from bot import sql
 from config import ADMIN_IDS
 from config_bd.models import (
+    AppRefferals,
     Gifts,
     Online,
     PartnerBotSettings,
@@ -36,6 +37,7 @@ _EXPORT_SHEETS: list[tuple[str, type[DeclarativeBase]]] = [
     ("payments_fk_sbp", PaymentsFkSBP),
     ("payments_stars", PaymentsStars),
     ("payments_cryptobot", PaymentsCryptobot),
+    ("app_refferals", AppRefferals),
     ("online", Online),
 ]
 
@@ -245,6 +247,7 @@ async def export_database_to_excel(message: Message) -> None:
         fk_count = len(snapshot["payments_fk_sbp"])
         stars_count = len(snapshot["payments_stars"])
         crypto_count = len(snapshot["payments_cryptobot"])
+        app_refferals_count = len(snapshot["app_refferals"])
         online_count = len(snapshot["online"])
 
         fk_ok = _count_confirmed(snapshot["payments_fk_sbp"])
@@ -264,6 +267,7 @@ async def export_database_to_excel(message: Message) -> None:
                 f"├ 💳 Платежей FreeKassa: {fk_ok}/{fk_count}\n"
                 f"├ ⭐ Платежей Stars: {stars_ok}/{stars_count}\n"
                 f"├ 💎 Платежей Cryptobot: {crypto_ok}/{crypto_count}\n"
+                f"├ 📱 App referrals: {app_refferals_count}\n"
                 f"└ 📈 Записей online: {online_count}"
             )
             await message.answer_document(

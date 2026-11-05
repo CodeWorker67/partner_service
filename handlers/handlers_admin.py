@@ -1,4 +1,4 @@
-"""Админ-команды partner service: /pay, /sub, /find, /add_traffic, /pay_to_owner, /info."""
+"""Админ-команды partner service: /pay, /sub, /find, /add_traffic, /pay_to_owner, /delete_old, /info."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -49,6 +49,9 @@ _INFO_TEXT = (
     "Пример: <code>/pay 123456789</code>\n\n"
     "/find — карточка пользователя по всем ботам (с кнопками +дни/+ГБ)\n"
     "Пример: <code>/find 123456789</code>\n\n"
+    "/delete_old — удалить «мёртвых» пользователей из БД\n"
+    "(вход &gt; 10 дн., in_panel=False, is_connect=False, без подписок и платежей)\n"
+    "Пример: <code>/delete_old</code>\n\n"
     "<b>Управление подписками</b>\n"
     "/sub — установить дату подписки в панели и БД бота\n"
     "• 5 устройств: <code>/sub 123456789_7 2026-09-15 07:48:05</code>\n"
@@ -884,6 +887,22 @@ async def cmd_pay_to_owner(message: Message):
         f"Всего заработано: {total} ₽\n"
         f"Выведено: {paid} ₽\n"
         f"Текущий баланс: {current} ₽{notify_line}"
+    )
+
+
+@router.message(Command(commands=["delete_old"]))
+async def cmd_delete_old(message: Message):
+    if not _admin_only_message(message):
+        await message.answer("❌ Эта команда доступна только администраторам.")
+        return
+
+    deleted = await sql.delete_old_inactive_users(days=10)
+    logger.info("/delete_old by admin {}: deleted {} users", message.from_user.id, deleted)
+    await message.answer(
+        f"✅ Удалено записей пользователей: <b>{deleted}</b>\n"
+        f"<i>Критерии: вход в бота &gt; 10 дн. назад, in_panel=False, "
+        f"is_connect=False, нет активных подписок (3/5/10), нет платежей.</i>",
+        parse_mode="HTML",
     )
 
 
